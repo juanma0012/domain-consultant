@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -18,6 +19,17 @@ var (
 	OrganizationName = ""
 	TextReplacer     = regexp.MustCompile(`\n\[(.+?)\][\ ]+(.+?)`)
 )
+
+type Endpoint struct {
+	IpAddress    string `json:"ipAddress"`
+	Grade        string `json:"grade"`
+	Country      string `json:"country"`
+	Organization string `json:"organization"`
+}
+type Domain struct {
+	Endpoints []Endpoint `json:"endpoints"`
+	Status    string     `json:"status"`
+}
 
 func main() {
 	r := chi.NewRouter()
@@ -38,60 +50,42 @@ func main() {
 	// RESTy routes for "information" resource
 	r.Route("/information", func(r chi.Router) {
 		// r.Post("/", createRecord)                  // POST /information
-		r.Get("/{domain}", getInformationByDomain) // GET /information/search
-	})
-	// RESTy routes for "information" resource
-	r.Route("/domain", func(r chi.Router) {
-		// r.Post("/", createRecord)                  // POST /information
-		r.Get("/", getInformation) // GET /information/search
+		r.Get("/{domain}", getInformation) // GET /information/search
 	})
 	http.ListenAndServe(":3333", r)
-
-	/* type Foo struct {
-		status, protocol string
-	} */
-
-	/* foo := Foo{}
-	json.Unmarshal([]byte(string(data)), &foo)
-	fmt.Printf(foo.status)
-
-	foo2 := new(Foo)
-	// defer response.Body.Close()
-	err := json.NewDecoder(response.Body).Decode(foo2)
-	if err != nil {
-		return
-	}
-	fmt.Println(foo2) */
-	// fmt.Println(string(data))
-	/* if data.status == "READY" {
-		for i := 0; i < len(data.endpoints); i++ {
-			setWhoIsInformation(data.endpoints[i].ipAddress)
-			fmt.Println("OrganizationName=", OrganizationName)
-			fmt.Println("CountryName=", CountryName)
-		}
-	} */
 }
 func getInformation(w http.ResponseWriter, r *http.Request) {
-	response, err := http.Get("https://api.ssllabs.com/api/v3/analyze?host=google.com")
-	if err != nil {
-		w.Write([]byte("The HTTP request failed with error"))
+	domain := chi.URLParam(r, "domain") // from a route like /information/{domain}
+	if domain != "" {
+		response, err := http.Get(fmt.Sprintf("https://api.ssllabs.com/api/v3/analyze?host=%s", domain))
+		if err != nil {
+			w.Write([]byte("The HTTP request failed with error"))
+		} else {
+			data, _ := ioutil.ReadAll(response.Body)
+			// w.Write([]byte(string(data)))
+			var domain Domain
+			json.Unmarshal(data, &domain)
+			for i := 0; i < len(domain.Endpoints); i++ {
+				setWhoIsInformation(&domain.Endpoints[i])
+			}
+			decodeData, _ := json.Marshal(domain)
+			w.Write([]byte(decodeData))
+		}
 	} else {
-		data, _ := ioutil.ReadAll(response.Body)
-		w.Write([]byte(string(data)))
+		w.Write([]byte("Error"))
 	}
 }
-func getInformationByDomain(w http.ResponseWriter, r *http.Request) {
+
+/* func getInformationByDomain(w http.ResponseWriter, r *http.Request) {
 	domain := chi.URLParam(r, "domain") // from a route like /information/{domain}
 	if domain != "" {
 		setWhoIsInformation(domain)
 	}
 	w.Write([]byte(OrganizationName))
-}
+} */
 
-func setWhoIsInformation(ip string) {
-	CountryName = ""
-	OrganizationName = ""
-	result, err := whois.Whois(ip)
+func setWhoIsInformation(endpoint *Endpoint) {
+	result, err := whois.Whois(endpoint.IpAddress)
 	if err != nil {
 		fmt.Println(result)
 		return
@@ -131,11 +125,11 @@ func setWhoIsInformation(ip string) {
 		if value == "" {
 			continue
 		} else if name == "Country" {
-			CountryName = value
+			endpoint.Country = value
 		} else if name == "Organization" {
-			OrganizationName = value
+			endpoint.Organization = value
 		}
-		if CountryName != "" && OrganizationName != "" {
+		if endpoint.Country != "" && endpoint.Organization != "" {
 			break
 		}
 	}
