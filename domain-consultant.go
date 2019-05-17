@@ -55,24 +55,39 @@ func main() {
 	http.ListenAndServe(":3333", r)
 }
 func getInformation(w http.ResponseWriter, r *http.Request) {
-	domain := chi.URLParam(r, "domain") // from a route like /information/{domain}
-	if domain != "" {
-		response, err := http.Get(fmt.Sprintf("https://api.ssllabs.com/api/v3/analyze?host=%s", domain))
-		if err != nil {
-			w.Write([]byte("The HTTP request failed with error"))
-		} else {
-			data, _ := ioutil.ReadAll(response.Body)
-			// w.Write([]byte(string(data)))
-			var domain Domain
-			json.Unmarshal(data, &domain)
-			for i := 0; i < len(domain.Endpoints); i++ {
-				setWhoIsInformation(&domain.Endpoints[i])
+	var domain Domain
+	domainString := chi.URLParam(r, "domain") // from a route like /information/{domain}
+	if domainString != "" {
+		var attempt = 0
+		for {
+			domain = requestSsllabs(domainString)
+			if domain.Status == "ERROR" || domain.Status == "READY" || attempt >= 4 {
+				break
+			} else {
+				attempt += 1
+				time.Sleep(3 * time.Second)
+				fmt.Println("timeout ")
 			}
-			decodeData, _ := json.Marshal(domain)
-			w.Write([]byte(decodeData))
 		}
+		decodeData, _ := json.Marshal(domain)
+		w.Write([]byte(decodeData))
 	} else {
-		w.Write([]byte("Error"))
+		decodeData, _ := json.Marshal(Domain{})
+		w.Write([]byte(decodeData))
+	}
+}
+func requestSsllabs(domainString string) Domain {
+	var domain Domain
+	response, err := http.Get(fmt.Sprintf("https://api.ssllabs.com/api/v3/analyze?host=%s", domainString))
+	if err != nil {
+		return Domain{}
+	} else {
+		data, _ := ioutil.ReadAll(response.Body)
+		json.Unmarshal(data, &domain)
+		for i := 0; i < len(domain.Endpoints); i++ {
+			setWhoIsInformation(&domain.Endpoints[i])
+		}
+		return domain
 	}
 }
 
@@ -119,14 +134,14 @@ func setWhoIsInformation(endpoint *Endpoint) {
 		}
 
 		lines := strings.SplitN(line, ":", 2)
-		name := strings.TrimSpace(lines[0])
+		name := strings.ToLower(strings.TrimSpace(lines[0]))
 		value := strings.TrimSpace(lines[1])
 
 		if value == "" {
 			continue
-		} else if name == "Country" {
+		} else if name == "country" {
 			endpoint.Country = value
-		} else if name == "Organization" {
+		} else if name == "organization" {
 			endpoint.Organization = value
 		}
 		if endpoint.Country != "" && endpoint.Organization != "" {
