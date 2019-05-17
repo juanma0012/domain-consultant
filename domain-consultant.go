@@ -2,33 +2,35 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
 	"net/http"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
-	"github.com/likexian/whois-go"
 )
 
 var (
-	CountryName      = ""
-	OrganizationName = ""
-	TextReplacer     = regexp.MustCompile(`\n\[(.+?)\][\ ]+(.+?)`)
+	TextReplacer = regexp.MustCompile(`\n\[(.+?)\][\ ]+(.+?)`)
+
+	sslGrades = map[string]int{"A+": 1, "A": 2, "B": 3, "C": 4, "D": 5, "E": 6, "F": 7}
 )
 
-type Endpoint struct {
-	IpAddress    string `json:"ipAddress"`
-	Grade        string `json:"grade"`
-	Country      string `json:"country"`
-	Organization string `json:"organization"`
+// sslGrades    = [7]string{"+A", "A", "B", "C", "D", "E", "F"}
+type Server struct {
+	Address  string `json:"address"`
+	SslGrade string `json:"ssl_grade"`
+	Country  string `json:"country"`
+	Owner    string `json:"owner"`
 }
-type Domain struct {
-	Endpoints []Endpoint `json:"endpoints"`
-	Status    string     `json:"status"`
+type Response struct {
+	Servers          []Server `json:"servers"`
+	ServersChanged   bool     `json:"servers_changed"`
+	SslGrade         string   `json:"ssl_grade"`
+	PreviousSslGrade string   `json:"previous_ssl_grade"`
+	Logo             string   `json:"logo"`
+	Title            string   `json:"title"`
+	IsDown           bool     `json:"is_down"`
 }
 
 func main() {
@@ -55,97 +57,46 @@ func main() {
 	http.ListenAndServe(":3333", r)
 }
 func getInformation(w http.ResponseWriter, r *http.Request) {
-	var domain Domain
+
 	domainString := chi.URLParam(r, "domain") // from a route like /information/{domain}
 	if domainString != "" {
+		var domain Domain
 		var attempt = 0
 		for {
 			domain = requestSsllabs(domainString)
-			if domain.Status == "ERROR" || domain.Status == "READY" || attempt >= 4 {
+			if domain.Status == "ERROR" || domain.Status == "READY" || attempt >= 3 {
 				break
 			} else {
 				attempt += 1
 				time.Sleep(3 * time.Second)
-				fmt.Println("timeout ")
 			}
 		}
-		decodeData, _ := json.Marshal(domain)
-		w.Write([]byte(decodeData))
-	} else {
-		decodeData, _ := json.Marshal(Domain{})
-		w.Write([]byte(decodeData))
-	}
-}
-func requestSsllabs(domainString string) Domain {
-	var domain Domain
-	response, err := http.Get(fmt.Sprintf("https://api.ssllabs.com/api/v3/analyze?host=%s", domainString))
-	if err != nil {
-		return Domain{}
-	} else {
-		data, _ := ioutil.ReadAll(response.Body)
-		json.Unmarshal(data, &domain)
 		for i := 0; i < len(domain.Endpoints); i++ {
 			setWhoIsInformation(&domain.Endpoints[i])
 		}
-		return domain
+		var response Response
+		if domain.Status == "ERROR" {
+			response.IsDown = true
+		} else {
+			parseRawDataToResponse(&response, domain)
+		}
+		decodeData, _ := json.Marshal(response)
+		w.Write([]byte(decodeData))
+	} else {
+		decodeData, _ := json.Marshal(Response{})
+		w.Write([]byte(decodeData))
 	}
 }
-
-/* func getInformationByDomain(w http.ResponseWriter, r *http.Request) {
-	domain := chi.URLParam(r, "domain") // from a route like /information/{domain}
-	if domain != "" {
-		setWhoIsInformation(domain)
-	}
-	w.Write([]byte(OrganizationName))
-} */
-
-func setWhoIsInformation(endpoint *Endpoint) {
-	result, err := whois.Whois(endpoint.IpAddress)
-	if err != nil {
-		fmt.Println(result)
-		return
-	}
-	whoisText := strings.Replace(result, "\r", "", -1)
-	whoisText = TextReplacer.ReplaceAllString(whoisText, "\n$1: $2")
-
-	whoisLines := strings.Split(whoisText, "\n")
-	for i := 0; i < len(whoisLines); i++ {
-		line := strings.TrimSpace(whoisLines[i])
-		if len(line) < 5 || !strings.Contains(line, ":") {
-			continue
-		}
-
-		fChar := line[:1]
-		if fChar == ">" || fChar == "%" || fChar == "*" {
-			continue
-		}
-
-		if line[len(line)-1:] == ":" {
-			i += 1
-			for ; i < len(whoisLines); i++ {
-				thisLine := strings.TrimSpace(whoisLines[i])
-				if strings.Contains(thisLine, ":") {
-					break
-				}
-				line += thisLine + ","
-			}
-			line = strings.Trim(line, ",")
-			i -= 1
-		}
-
-		lines := strings.SplitN(line, ":", 2)
-		name := strings.ToLower(strings.TrimSpace(lines[0]))
-		value := strings.TrimSpace(lines[1])
-
-		if value == "" {
-			continue
-		} else if name == "country" {
-			endpoint.Country = value
-		} else if name == "organization" {
-			endpoint.Organization = value
-		}
-		if endpoint.Country != "" && endpoint.Organization != "" {
-			break
+func parseRawDataToResponse(response *Response, domain Domain) {
+	response.Servers = make([]Server, len(domain.Endpoints))
+	for i := 0; i < len(domain.Endpoints); i++ {
+		response.Servers[i] = Server{
+			Address:  domain.Endpoints[i].IpAddress,
+			SslGrade: domain.Endpoints[i].Grade,
+			Country:  domain.Endpoints[i].Country,
+			Owner:    domain.Endpoints[i].Organization}
+		if response.Servers[i].SslGrade != "" && sslGrades[response.SslGrade] < sslGrades[response.Servers[i].SslGrade] {
+			response.SslGrade = response.Servers[i].SslGrade
 		}
 	}
 }
