@@ -21,6 +21,20 @@ type Domain struct {
 	Status    string     `json:"status"`
 }
 
+func parseRawDataToResponse(response *Response, domain Domain) {
+	response.Servers = make([]Server, len(domain.Endpoints))
+	for i := 0; i < len(domain.Endpoints); i++ {
+		response.Servers[i] = Server{
+			Address:  domain.Endpoints[i].IpAddress,
+			SslGrade: domain.Endpoints[i].Grade,
+			Country:  domain.Endpoints[i].Country,
+			Owner:    domain.Endpoints[i].Organization}
+		if response.Servers[i].SslGrade != "" && sslGrades[response.SslGrade] < sslGrades[response.Servers[i].SslGrade] {
+			response.SslGrade = response.Servers[i].SslGrade
+		}
+	}
+}
+
 func requestSsllabs(domainString string) Domain {
 	var domain Domain
 	response, err := http.Get(fmt.Sprintf("https://api.ssllabs.com/api/v3/analyze?host=%s", domainString))
@@ -32,6 +46,7 @@ func requestSsllabs(domainString string) Domain {
 		return domain
 	}
 }
+
 func setWhoIsInformation(endpoint *Endpoint) {
 	result, err := whois.Whois(endpoint.IpAddress)
 	if err != nil {

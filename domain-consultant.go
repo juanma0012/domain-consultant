@@ -16,7 +16,6 @@ var (
 	sslGrades = map[string]int{"A+": 1, "A": 2, "B": 3, "C": 4, "D": 5, "E": 6, "F": 7}
 )
 
-// sslGrades    = [7]string{"+A", "A", "B", "C", "D", "E", "F"}
 type Server struct {
 	Address  string `json:"address"`
 	SslGrade string `json:"ssl_grade"`
@@ -79,24 +78,12 @@ func getInformation(w http.ResponseWriter, r *http.Request) {
 			response.IsDown = true
 		} else {
 			parseRawDataToResponse(&response, domain)
+			parsePageHtml(&response, domainString)
 		}
 		decodeData, _ := json.Marshal(response)
 		w.Write([]byte(decodeData))
 	} else {
 		decodeData, _ := json.Marshal(Response{})
 		w.Write([]byte(decodeData))
-	}
-}
-func parseRawDataToResponse(response *Response, domain Domain) {
-	response.Servers = make([]Server, len(domain.Endpoints))
-	for i := 0; i < len(domain.Endpoints); i++ {
-		response.Servers[i] = Server{
-			Address:  domain.Endpoints[i].IpAddress,
-			SslGrade: domain.Endpoints[i].Grade,
-			Country:  domain.Endpoints[i].Country,
-			Owner:    domain.Endpoints[i].Organization}
-		if response.Servers[i].SslGrade != "" && sslGrades[response.SslGrade] < sslGrades[response.Servers[i].SslGrade] {
-			response.SslGrade = response.Servers[i].SslGrade
-		}
 	}
 }
