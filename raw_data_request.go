@@ -19,6 +19,7 @@ type Endpoint struct {
 type Domain struct {
 	Endpoints []Endpoint `json:"endpoints"`
 	Status    string     `json:"status"`
+	Domain    string     `json:"domain"`
 }
 
 func parseRawDataToResponse(response *Response, domain Domain) {
@@ -33,6 +34,7 @@ func parseRawDataToResponse(response *Response, domain Domain) {
 			response.SslGrade = response.Servers[i].SslGrade
 		}
 	}
+	response.Domain = domain.Domain
 }
 
 func requestSsllabs(domainString string) Domain {
@@ -43,6 +45,7 @@ func requestSsllabs(domainString string) Domain {
 	} else {
 		data, _ := ioutil.ReadAll(response.Body)
 		json.Unmarshal(data, &domain)
+		domain.Domain = domainString
 		return domain
 	}
 }
