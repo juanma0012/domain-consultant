@@ -80,7 +80,8 @@ func getInformation(w http.ResponseWriter, r *http.Request) {
 		} else {
 			parseRawDataToResponse(&response, domain)
 			parsePageHtml(&response, domainString)
-			addResponse(response)
+			getHistoryByUserAndDomain(&response, "test_id3")
+			storeRecord(response)
 		}
 		decodeData, _ := json.Marshal(response)
 		w.Write([]byte(decodeData))
@@ -89,26 +90,3 @@ func getInformation(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(decodeData))
 	}
 }
-
-/* func getPreviousData(userSessionId string, response *Response) {
-	db, err := sql.Open("postgres", "postgresql://maxroach@localhost:26257/bank?sslmode=disable")
-	if err != nil {
-		log.Fatal("error connecting to the database: ", err)
-	}
-	// Print out the balances.
-	query, _ := fmt.Sprintf(("SELECT response_id FROM History WHERE user_session_id='%s'ORDER BY time DESC LIMIT 1 ", "some_user_session_id")
-	rows, err := db.Query(query)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer rows.Close()
-	fmt.Println("Initial balances:")
-	for rows.Next() {
-		var id, balance int
-		if err := rows.Scan(&id, &balance); err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("%d %d\n", id, balance)
-	}
-}
-*/

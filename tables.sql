@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS Server
 
 CREATE TABLE IF NOT EXISTS History
 (
-  user_session_id VARCHAR NOT NULL PRIMARY KEY,
-  time INT NOT NULL,
+  user_session_id VARCHAR NOT NULL,
+  created VARCHAR NOT NULL,
   response_id INT NOT NULL,
   FOREIGN KEY (response_id) REFERENCES Response(response_id)
 );
