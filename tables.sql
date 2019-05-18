@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS Response
   previous_ssl_grade VARCHAR(2),
   logo VARCHAR,
   title VARCHAR,
-  is_down BOOL
+  is_down BOOL,
+  user_session_id VARCHAR NOT NULL,
+  created VARCHAR NOT NULL,
 );
 
 CREATE TABLE IF NOT EXISTS Server

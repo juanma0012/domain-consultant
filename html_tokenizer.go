@@ -9,7 +9,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-func parsePageHtml(response *Response, domainString string) {
+func parsePageHtml(response *ResponseJson, domainString string) {
 	res, err := http.Get(fmt.Sprintf("http://%s", domainString))
 	if err != nil {
 		return

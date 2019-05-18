@@ -1,11 +1,11 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	_ "github.com/lib/pq"
 )
 
@@ -13,12 +13,17 @@ var (
 	database_connection string = "postgresql://maxroach@localhost:26257/logs?sslmode=disable"
 )
 
-func getHistoryByUserAndDomain(response *Response, userSessionId string) {
+/* func getHistoryByUserAndDomain(response *Response, userSessionId string) {
 	db, err := sql.Open("postgres", database_connection)
 	if err != nil {
 		return
 	}
-	query := fmt.Sprintf("SELECT H.created, H.response_id FROM History H INNER JOIN Response R ON H.response_id = R.response_id WHERE H.user_session_id='%s' AND R.domain='%s';", userSessionId, response.Domain)
+	query := fmt.Sprintf(`
+			SELECT H.created, H.response_id
+			FROM History H
+			INNER JOIN Response R ON H.response_id = R.response_id
+			WHERE H.user_session_id='%s' AND R.domain='%s';`,
+		userSessionId, response.Domain)
 	rows, err := db.Query(query)
 	if err != nil {
 		log.Fatal(err)
@@ -160,4 +165,137 @@ func addResponse(response Response) int {
 		return 0
 	}
 	return response_id
+}
+*/
+
+func storeResponse(response ResponseJson, userSessionId string) {
+	db, err := gorm.Open("postgres", database_connection)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	// Automatically create the "accounts" table based on the Account model.
+	db.AutoMigrate(&Server{})
+	db.AutoMigrate(&Response{})
+
+	// Insert two rows into the "response" table.
+	responseOrm := parseJsonToOrm(response, userSessionId)
+	db.Create(&responseOrm)
+}
+
+func getHistoryByUser(userSessionId string) []ResponseJson {
+	db, err := gorm.Open("postgres", database_connection)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	// Automatically create the "accounts" table based on the Account model.
+	db.AutoMigrate(&Server{})
+	db.AutoMigrate(&Response{})
+
+	var history History
+	// Get all matched records
+	// db.Where("user_session_id = ?", "userSessionId").Find(&users)
+	db.Where(Response{UserSessionId: userSessionId}).Find(&history.Responses)
+	history.ResponsesJson = make([]ResponseJson, len(history.Responses))
+	for i := 0; i < len(history.Responses); i++ {
+		db.Where(Server{ResponseId: int(history.Responses[i].ID)}).Find(&history.Responses[i].Servers)
+		history.ResponsesJson[i] = parseOrmToJson(history.Responses[i])
+	}
+	return history.ResponsesJson
+}
+
+func getChangesByDomain(userSessionId string, response ResponseJson) {
+	db, err := gorm.Open("postgres", database_connection)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	db.AutoMigrate(&Server{})
+	db.AutoMigrate(&Response{})
+
+	var (
+		history          History
+		previousResponse Response
+		start            = time.Now()
+	)
+	db.Where(Response{UserSessionId: userSessionId, Domain: response.Domain}).Find(&history.Responses)
+	history.ResponsesJson = make([]ResponseJson, len(history.Responses))
+	for i := 0; i < len(history.Responses); i++ {
+		createdDate := history.Responses[i].CreatedAt
+		difference := start.Sub(createdDate)
+		fmt.Printf("difference = %v\n", difference)
+		fmt.Println(int(difference.Hours()))
+		if int(difference.Hours()) >= 1 {
+			db.Where(Server{ResponseId: int(history.Responses[i].ID)}).Find(&history.Responses[i].Servers)
+			previousResponse = history.Responses[i]
+			break
+		}
+	}
+	if previousResponse.SslGrade != "" {
+		response.PreviousSslGrade = previousResponse.SslGrade
+	}
+	if len(previousResponse.Servers) != 0 && len(previousResponse.Servers) != len(response.Servers) {
+		response.ServersChanged = true
+	} else {
+		response.ServersChanged = hasServerChanged(response, previousResponse)
+	}
+	fmt.Print(previousResponse)
+}
+func hasServerChanged(response ResponseJson, previousResponse Response) bool {
+	for i := 0; i < len(previousResponse.Servers); i++ {
+		for j := 0; j < len(response.Servers); j++ {
+			if previousResponse.Servers[i].Address == response.Servers[j].Address &&
+				previousResponse.Servers[i].SslGrade != "" &&
+				previousResponse.Servers[i].SslGrade != response.Servers[j].SslGrade {
+				return true
+			}
+
+		}
+	}
+	return false
+}
+
+func parseJsonToOrm(response ResponseJson, userSessionId string) Response {
+	responseOrm := Response{}
+	responseOrm.Title = response.Title
+	responseOrm.Logo = response.Logo
+	responseOrm.SslGrade = response.SslGrade
+	responseOrm.IsDown = response.IsDown
+	responseOrm.PreviousSslGrade = response.PreviousSslGrade
+	responseOrm.ServersChanged = response.ServersChanged
+	responseOrm.Domain = response.Domain
+	responseOrm.UserSessionId = userSessionId
+	responseOrm.Servers = make([]Server, len(response.Servers))
+	for i := 0; i < len(response.Servers); i++ {
+		responseOrm.Servers[i] = Server{
+			Address:  response.Servers[i].Address,
+			SslGrade: response.Servers[i].SslGrade,
+			Country:  response.Servers[i].Country,
+			Owner:    response.Servers[i].Owner}
+	}
+	return responseOrm
+}
+
+func parseOrmToJson(response Response) ResponseJson {
+	responseJson := ResponseJson{}
+	responseJson.Title = response.Title
+	responseJson.Logo = response.Logo
+	responseJson.SslGrade = response.SslGrade
+	responseJson.IsDown = response.IsDown
+	responseJson.PreviousSslGrade = response.PreviousSslGrade
+	responseJson.ServersChanged = response.ServersChanged
+	responseJson.Domain = response.Domain
+	responseJson.Servers = make([]ServerJson, len(response.Servers))
+	for i := 0; i < len(response.Servers); i++ {
+		responseJson.Servers[i] = ServerJson{
+			Address:  response.Servers[i].Address,
+			SslGrade: response.Servers[i].SslGrade,
+			Country:  response.Servers[i].Country,
+			Owner:    response.Servers[i].Owner}
+	}
+	return responseJson
 }

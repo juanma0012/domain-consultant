@@ -5,27 +5,21 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/likexian/whois-go"
 )
 
-type Endpoint struct {
-	IpAddress    string `json:"ipAddress"`
-	Grade        string `json:"grade"`
-	Country      string `json:"country"`
-	Organization string `json:"organization"`
-}
-type Domain struct {
-	Endpoints []Endpoint `json:"endpoints"`
-	Status    string     `json:"status"`
-	Domain    string     `json:"domain"`
-}
+var (
+	TextReplacer = regexp.MustCompile(`\n\[(.+?)\][\ ]+(.+?)`)
+	sslGrades    = map[string]int{"A+": 1, "A": 2, "B": 3, "C": 4, "D": 5, "E": 6, "F": 7}
+)
 
-func parseRawDataToResponse(response *Response, domain Domain) {
-	response.Servers = make([]Server, len(domain.Endpoints))
+func parseRawDataToResponse(response *ResponseJson, domain Domain) {
+	response.Servers = make([]ServerJson, len(domain.Endpoints))
 	for i := 0; i < len(domain.Endpoints); i++ {
-		response.Servers[i] = Server{
+		response.Servers[i] = ServerJson{
 			Address:  domain.Endpoints[i].IpAddress,
 			SslGrade: domain.Endpoints[i].Grade,
 			Country:  domain.Endpoints[i].Country,
@@ -41,7 +35,7 @@ func requestSsllabs(domainString string) Domain {
 	var domain Domain
 	response, err := http.Get(fmt.Sprintf("https://api.ssllabs.com/api/v3/analyze?host=%s", domainString))
 	if err != nil {
-		return Domain{}
+		return Domain{Status: "ERROR"}
 	} else {
 		data, _ := ioutil.ReadAll(response.Body)
 		json.Unmarshal(data, &domain)
