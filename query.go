@@ -37,7 +37,7 @@ func getHistoryByUser(userSessionId string) []ResponseJson {
 
 	var history History
 	// Get all matched records
-	db.Where(Response{UserSessionId: userSessionId}).Find(&history.Responses)
+	db.Order("created_at desc").Where(Response{UserSessionId: userSessionId}).Find(&history.Responses)
 	history.ResponsesJson = make([]ResponseJson, len(history.Responses))
 	for i := 0; i < len(history.Responses); i++ {
 		db.Where(Server{ResponseId: int(history.Responses[i].ID)}).Find(&history.Responses[i].Servers)
