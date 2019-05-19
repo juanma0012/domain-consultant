@@ -5,31 +5,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/likexian/whois-go"
 )
-
-var (
-	TextReplacer = regexp.MustCompile(`\n\[(.+?)\][\ ]+(.+?)`)
-	sslGrades    = map[string]int{"A+": 1, "A": 2, "B": 3, "C": 4, "D": 5, "E": 6, "F": 7}
-)
-
-func parseRawDataToResponse(response *ResponseJson, domain Domain) {
-	response.Servers = make([]ServerJson, len(domain.Endpoints))
-	for i := 0; i < len(domain.Endpoints); i++ {
-		response.Servers[i] = ServerJson{
-			Address:  domain.Endpoints[i].IpAddress,
-			SslGrade: domain.Endpoints[i].Grade,
-			Country:  domain.Endpoints[i].Country,
-			Owner:    domain.Endpoints[i].Organization}
-		if response.Servers[i].SslGrade != "" && sslGrades[response.SslGrade] < sslGrades[response.Servers[i].SslGrade] {
-			response.SslGrade = response.Servers[i].SslGrade
-		}
-	}
-	response.Domain = domain.Domain
-}
 
 func requestSsllabs(domainString string) Domain {
 	var domain Domain

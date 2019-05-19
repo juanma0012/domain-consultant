@@ -62,7 +62,7 @@ func getInformation(w http.ResponseWriter, r *http.Request) {
 			//getHistoryByUserAndDomain(&response, "test_id3")
 			//storeRecord(response)
 			//test()
-			getChangesByDomain("session_number_5", response)
+			getChangesByDomain("session_number_5", &response)
 			storeResponse(response, "session_number_5")
 		}
 		decodeData, _ := json.Marshal(response)
