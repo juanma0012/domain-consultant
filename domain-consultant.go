@@ -25,8 +25,8 @@ func main() {
 		AllowedOrigins: []string{"*"},
 		// AllowOriginFunc:  func(r *http.Request, origin string) bool { return true },
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "User-Session-Id"},
+		ExposedHeaders:   []string{"User-Session-Id"},
 		AllowCredentials: true,
 	})
 	r.Use(cors.Handler)
@@ -54,6 +54,7 @@ func main() {
 func getInformation(w http.ResponseWriter, r *http.Request) {
 
 	domainString := chi.URLParam(r, "domain") // from a route like /information/{domain}
+	userSessionId := r.Header.Get("User-Session-Id")
 	if domainString != "" {
 		var domain Domain
 		for {
@@ -76,8 +77,8 @@ func getInformation(w http.ResponseWriter, r *http.Request) {
 			//getHistoryByUserAndDomain(&response, "test_id3")
 			//storeRecord(response)
 			//test()
-			getChangesByDomain("session_number_5", &response)
-			storeResponse(response, "session_number_5")
+			getChangesByDomain(userSessionId, &response)
+			storeResponse(response, userSessionId)
 		}
 		decodeData, _ := json.Marshal(response)
 		w.Write([]byte(decodeData))
@@ -88,8 +89,9 @@ func getInformation(w http.ResponseWriter, r *http.Request) {
 }
 
 func getHistory(w http.ResponseWriter, r *http.Request) {
+	userSessionId := r.Header.Get("User-Session-Id")
 	var history []ResponseJson
-	history = getHistoryByUser("session_number_5")
+	history = getHistoryByUser(userSessionId)
 	decodeData, _ := json.Marshal(history)
 	w.Write([]byte(decodeData))
 }
