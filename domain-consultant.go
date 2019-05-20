@@ -74,9 +74,6 @@ func getInformation(w http.ResponseWriter, r *http.Request) {
 		} else {
 			parseRawDataToResponse(&response, domain)
 			parsePageHtml(&response, domainString)
-			//getHistoryByUserAndDomain(&response, "test_id3")
-			//storeRecord(response)
-			//test()
 			getChangesByDomain(userSessionId, &response)
 			storeResponse(response, userSessionId)
 		}

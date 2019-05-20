@@ -17,6 +17,7 @@ type ResponseJson struct {
 	Logo             string       `json:"logo"`
 	Title            string       `json:"title"`
 	IsDown           bool         `json:"is_down"`
+	CreatedAt        string       `json:"created_at"`
 }
 
 type Endpoint struct {

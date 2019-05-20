@@ -1,6 +1,9 @@
 package main
 
-import "regexp"
+import (
+	"regexp"
+	"time"
+)
 
 var (
 	TextReplacer               = regexp.MustCompile(`\n\[(.+?)\][\ ]+(.+?)`)
@@ -38,6 +41,7 @@ func parseOrmToJson(response Response) ResponseJson {
 	responseJson.PreviousSslGrade = response.PreviousSslGrade
 	responseJson.ServersChanged = response.ServersChanged
 	responseJson.Domain = response.Domain
+	responseJson.CreatedAt = response.CreatedAt.Format(time.RFC850)
 	responseJson.Servers = make([]ServerJson, len(response.Servers))
 	for i := 0; i < len(response.Servers); i++ {
 		responseJson.Servers[i] = ServerJson{
