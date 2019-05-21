@@ -9,12 +9,12 @@ import (
 	"golang.org/x/net/html"
 )
 
+// Request the page by the given domain  and parse the Logo and Title from the page.
 func parsePageHtml(response *ResponseJson, domainString string) {
 	res, err := http.Get(fmt.Sprintf("http://%s", domainString))
 	if err != nil {
 		return
 	} else {
-		// data, _ := ioutil.ReadAll(res.Body)
 		//create a new tokenizer over the res body
 		tokenizer := html.NewTokenizer(res.Body)
 		for {
@@ -30,9 +30,7 @@ func parsePageHtml(response *ResponseJson, domainString string) {
 
 			//process the token according to the token type...
 			if tokenType == html.StartTagToken {
-				//get the token
 				token := tokenizer.Token()
-				//if the name of the element is "title"
 				if "title" == token.Data {
 					//the next token should be the page title
 					tokenType = tokenizer.Next()
@@ -44,19 +42,23 @@ func parsePageHtml(response *ResponseJson, domainString string) {
 			}
 			if tokenType == html.SelfClosingTagToken {
 				token := tokenizer.Token()
+				// <link href="image_url" type="image/x-icon"/>
 				if "link" == token.Data {
 					var (
 						logoUrl   = ""
 						logoFound = false
 					)
 					for i := 0; i < len(token.Attr); i++ {
+						// get the link
 						if token.Attr[i].Key == "href" {
 							logoUrl = token.Attr[i].Val
 						}
+						// validate if the link has the attribute 'image/x-icon'
 						if token.Attr[i].Key == "type" && token.Attr[i].Val == "image/x-icon" {
 							logoFound = true
 						}
 					}
+					// assign the correct link url
 					if logoFound {
 						response.Logo = logoUrl
 					}

@@ -15,7 +15,7 @@ func storeResponse(response ResponseJson, userSessionId string) {
 	}
 	defer db.Close()
 
-	// Automatically create the "accounts" table based on the Account model.
+	// If doesn't exist, automatically create the "responses" and "servers" tables based on the Response and Server model.
 	db.AutoMigrate(&Server{})
 	db.AutoMigrate(&Response{})
 
@@ -31,12 +31,12 @@ func getHistoryByUser(userSessionId string) []ResponseJson {
 	}
 	defer db.Close()
 
-	// Automatically create the "accounts" table based on the Account model.
+	// If doesn't exist, automatically create the "responses" and "servers" tables based on the Response and Server model.
 	db.AutoMigrate(&Server{})
 	db.AutoMigrate(&Response{})
 
 	var history History
-	// Get all matched records
+	// Get all matched ordered by created date
 	db.Order("created_at desc").Where(Response{UserSessionId: userSessionId}).Find(&history.Responses)
 	history.ResponsesJson = make([]ResponseJson, len(history.Responses))
 	for i := 0; i < len(history.Responses); i++ {
@@ -66,6 +66,7 @@ func getChangesByDomain(userSessionId string, response *ResponseJson) {
 	for i := 0; i < len(history.Responses); i++ {
 		createdDate := history.Responses[i].CreatedAt
 		difference := start.Sub(createdDate)
+		// If record was created around one hour or over, take the first match to compare with the current information
 		if int(difference.Hours()) >= 1 {
 			db.Where(Server{ResponseId: int(history.Responses[i].ID)}).Find(&history.Responses[i].Servers)
 			previousResponse = history.Responses[i]
@@ -79,6 +80,7 @@ func hasServerChanged(response *ResponseJson, previousResponse Response) bool {
 	if len(previousResponse.Servers) != 0 && len(previousResponse.Servers) != len(response.Servers) {
 		return true
 	}
+	// Comparing all the servers with the previous ones
 	for i := 0; i < len(previousResponse.Servers); i++ {
 		for j := 0; j < len(response.Servers); j++ {
 			if previousResponse.Servers[i].Address == response.Servers[j].Address &&

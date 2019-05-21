@@ -11,60 +11,59 @@ import (
 )
 
 func main() {
+	// Applying the middleware setting
 	r := chi.NewRouter()
-	// A good base middleware stack
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Basic CORS
-	// for more ideas, see: https://developer.github.com/v3/#cross-origin-resource-sharing
+	//CORS setting
 	cors := cors.New(cors.Options{
-		// AllowedOrigins: []string{"https://foo.com"}, // Use this to allow specific origin hosts
-		AllowedOrigins: []string{"*"},
-		// AllowOriginFunc:  func(r *http.Request, origin string) bool { return true },
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "User-Session-Id"},
 		ExposedHeaders:   []string{"User-Session-Id"},
 		AllowCredentials: true,
 	})
 	r.Use(cors.Handler)
-
-	// Set a timeout value on the request context (ctx), that will signal
-	// through ctx.Done() that the request has timed out and further
-	// processing should be stopped.
 	r.Use(middleware.Timeout(60 * time.Second))
+
+	// Default URI
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Go to /information/{domain}"))
 	})
 
-	// RESTy routes for "information" resource
+	// REST route for "information" resource
 	r.Route("/information", func(r chi.Router) {
-		// r.Post("/", createRecord)                  // POST /information
 		r.Get("/{domain}", getInformation) // GET /information/{domain}
 	})
-	// RESTy routes for "history" resource
+	// REST route for "history" resource
 	r.Route("/history", func(r chi.Router) {
-		// r.Post("/", createRecord)                  // POST /information
 		r.Get("/", getHistory) // GET /history
 	})
 	http.ListenAndServe(":3333", r)
 }
 func getInformation(w http.ResponseWriter, r *http.Request) {
-
-	domainString := chi.URLParam(r, "domain") // from a route like /information/{domain}
+	// Getting the domain variable from the route /information/{domain}
+	domainString := chi.URLParam(r, "domain")
+	// Getting the use session id variable from the header request
 	userSessionId := r.Header.Get("User-Session-Id")
 	if domainString != "" {
 		var domain Domain
 		for {
+			// Calling the ssllabs endpoint
 			domain = requestSsllabs(domainString)
+			// The endpoint return the status ERROR, READY, IN-PROGRESS, DNS
 			if domain.Status == "ERROR" || domain.Status == "READY" {
 				break
 			} else {
+				// if the status is either IN-PROGRESS or DNS, we wait
+				// 6 seconds to request again the information with the status READY
 				time.Sleep(6 * time.Second)
 			}
 		}
+		// Calling for each server the command whois ip
 		for i := 0; i < len(domain.Endpoints); i++ {
 			setWhoIsInformation(&domain.Endpoints[i])
 		}
@@ -72,6 +71,7 @@ func getInformation(w http.ResponseWriter, r *http.Request) {
 		if domain.Status == "ERROR" {
 			response.IsDown = true
 		} else {
+			// Collect all the information in one response object
 			parseRawDataToResponse(&response, domain)
 			parsePageHtml(&response, domainString)
 			getChangesByDomain(userSessionId, &response)
@@ -88,6 +88,7 @@ func getInformation(w http.ResponseWriter, r *http.Request) {
 func getHistory(w http.ResponseWriter, r *http.Request) {
 	userSessionId := r.Header.Get("User-Session-Id")
 	var history []ResponseJson
+	// Getting the history of the  requests done previously
 	history = getHistoryByUser(userSessionId)
 	decodeData, _ := json.Marshal(history)
 	w.Write([]byte(decodeData))

@@ -1,2 +1,0 @@
-cockroach start --insecure
-cockroach sql --insecure --execute="$(cat tables.sql)"

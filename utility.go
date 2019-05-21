@@ -5,12 +5,14 @@ import (
 	"time"
 )
 
+// Defining the global variables to use in different files.
 var (
 	TextReplacer               = regexp.MustCompile(`\n\[(.+?)\][\ ]+(.+?)`)
 	sslGrades                  = map[string]int{"A+": 1, "A": 2, "B": 3, "C": 4, "D": 5, "E": 6, "F": 7}
 	database_connection string = "postgresql://maxroach@localhost:26257/logs?sslmode=disable"
 )
 
+// Parsing a Json object to a ORM object
 func parseJsonToOrm(response ResponseJson, userSessionId string) Response {
 	responseOrm := Response{}
 	responseOrm.Title = response.Title
@@ -32,6 +34,7 @@ func parseJsonToOrm(response ResponseJson, userSessionId string) Response {
 	return responseOrm
 }
 
+// Parsing a ORM object to a Json object
 func parseOrmToJson(response Response) ResponseJson {
 	responseJson := ResponseJson{}
 	responseJson.Title = response.Title
@@ -53,6 +56,7 @@ func parseOrmToJson(response Response) ResponseJson {
 	return responseJson
 }
 
+// Parsing the data getting from the saucelabs and whois to Json object
 func parseRawDataToResponse(response *ResponseJson, domain Domain) {
 	response.Servers = make([]ServerJson, len(domain.Endpoints))
 	for i := 0; i < len(domain.Endpoints); i++ {
