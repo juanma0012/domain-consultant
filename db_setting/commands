@@ -1,2 +1,2 @@
 cockroach start --insecure
-cockroach sql --insecure --execute="$(cat inital_setting.sql)"
+cockroach sql --insecure --execute="$(cat db_setting/initial_setting.sql)"

@@ -64,7 +64,7 @@ Response:
 #### Running database
 1. Download the database [here](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-mac.html "here")
 2. Start the node `$ cockroach start --insecure`
-3. Setting the user and database `$ cockroach sql --insecure --execute="$(cat db_setting/inital_setting.sql)"`
+3. Setting the user and database `$ cockroach sql --insecure --execute="$(cat db_setting/initial_setting.sql)"`
 
 #### Running the service
 1. Install the dependencies (See Gopkg.tolm file) using  [dep](https://golang.github.io/dep "dep")
