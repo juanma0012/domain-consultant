@@ -44,7 +44,9 @@ Response:
 }
 </pre>
 
-**Get the records of the previous consults **
+
+**Get the records of the previous consults**
+
 > http://endpoint:3333/history
 
 Returns a list with the records that the user requested previously, with the same json structure.
@@ -59,6 +61,7 @@ Response:
 #### Implemented technologies
 - Go (Language)
 - Chi (Routing)
+- Gorm (Database ORM)
 - Cockroach (Database SQL)
 
 #### Running database
